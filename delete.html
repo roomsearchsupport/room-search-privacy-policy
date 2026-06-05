@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delete Account - Room Search</title>
-    <!-- Load Google's official Identity Services library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #333; }
@@ -18,9 +17,8 @@
 <body>
 
     <h2>Delete Your Room Search Account</h2>
-    <p>In accordance with Google Play Store Data Safety requirements, you can request the permanent removal of your account profile and authored listings.</p>
+    <p>In accordance with Google Play Store Data Safety requirements, you can request the permanent removal of your account profile.</p>
 
-    <!-- Option 1: In-App Instructions -->
     <div class="box">
         <h3>Option 1: Delete via the App (Recommended)</h3>
         <p>If the app is still on your device, follow these quick steps:</p>
@@ -32,14 +30,13 @@
         </ol>
     </div>
 
-    <!-- Option 2: Web Deletion with Secure Google Auth -->
     <div class="box">
         <h3>Option 2: Delete via Web Request</h3>
         <p>If you have uninstalled the app, sign in with your registered Google account below to authenticate your request securely.</p>
         
         <!-- Google Sign-In Button Container -->
         <div id="g_id_onload"
-             data-client_id="614609319473-d237gtdebjvheg6388prk9r9nebgvp68.apps.googleusercontent.com"
+             data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
              data-context="signin"
              data-ux_mode="popup"
              data-callback="handleCredentialResponse"
@@ -47,22 +44,16 @@
         </div>
         <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
 
-        <!-- Hidden Deletion Form (Revealed after successful Google Sign-in) -->
-        <form id="deletionForm" action="https://api.web3forms.com/submit" method="POST" class="hidden">
-            <!-- Web3Forms Access Key Integration -->
-            <input type="hidden" name="access_key" value="YOUR_WEB3FORMS_ACCESS_KEY">
-            <input type="hidden" name="subject" value="Account Deletion Request - Room Search App">
-            
+        <!-- Hidden Deletion Confirmation UI -->
+        <div id="deletionFormContainer" class="hidden">
             <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
                 <p>Authenticated as: <strong id="userEmailDisplay"></strong></p>
-                <!-- Hidden input field that sends the email automatically in the form payload -->
-                <input type="hidden" id="userEmailInput" name="email_to_delete">
                 
-                <p style="color: #d93025; font-size: 0.9em;"><strong>Warning:</strong> Clicking the button below will immediately queue your profile and public room posts for permanent erasure. Data will be completely purged from all live environments and offline backups within 90 days.</p>
+                <p style="color: #d93025; font-size: 0.9em;"><strong>Warning:</strong> Clicking the button below will immediately queue your profile and public room posts for permanent erasure. Data will be completely purged within 90 days.</p>
                 
-                <button type="submit" class="btn">Confirm Permanent Deletion</button>
+                <button id="confirmDeleteBtn" class="btn">Confirm Permanent Deletion</button>
             </div>
-        </form>
+        </div>
 
         <div id="successState" class="hidden success-msg">
             Your deletion request has been submitted successfully. Your account data will be permanently wiped within 90 days.
@@ -70,7 +61,10 @@
     </div>
 
     <script>
-        // Simple JWT decoder to read user profile details entirely client-side
+        let verifiedEmail = "";
+        // Paste your Google Apps Script URL here:
+        const GOOGLE_SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
         function parseJwt(token) {
             var base64Url = token.split('.')[1];
             var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -80,36 +74,37 @@
             return JSON.parse(jsonPayload);
         }
 
-        // Callback function triggered immediately after successful Google login
         function handleCredentialResponse(response) {
             const responsePayload = parseJwt(response.credential);
-            const userEmail = responsePayload.email;
+            verifiedEmail = responsePayload.email;
 
-            if (userEmail) {
-                // Populate the hidden form inputs with the verified Google email profile
-                document.getElementById('userEmailDisplay').innerText = userEmail;
-                document.getElementById('userEmailInput').value = userEmail;
-                
-                // Show the hidden form module to the user
-                document.getElementById('deletionForm').classList.remove('hidden');
-                // Hide the raw login button after context switch
+            if (verifiedEmail) {
+                document.getElementById('userEmailDisplay').innerText = verifiedEmail;
+                document.getElementById('deletionFormContainer').classList.remove('hidden');
                 document.getElementsByClassName('g_id_signin')[0].classList.add('hidden');
             }
         }
 
-        // Gracefully intercept standard form action redirection
-        document.getElementById('deletionForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            
-            fetch(this.action, {
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            const button = this;
+            button.disabled = true;
+            button.innerText = "Processing...";
+
+            // Send data cleanly to your private Google Sheet
+            fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                body: formData
-            }).then(response => {
-                if (response.ok) {
-                    document.getElementById('deletionForm').classList.add('hidden');
-                    document.getElementById('successState').classList.remove('hidden');
-                }
+                mode: 'no-cors', // Essential for Google Script cross-domain restrictions
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email_to_delete: verifiedEmail })
+            }).then(() => {
+                document.getElementById('deletionFormContainer').classList.add('hidden');
+                document.getElementById('successState').classList.remove('hidden');
+            }).catch(err => {
+                alert("Something went wrong. Please try again or contact support.");
+                button.disabled = false;
+                button.innerText = "Confirm Permanent Deletion";
             });
         });
     </script>
